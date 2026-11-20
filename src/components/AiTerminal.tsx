@@ -45,13 +45,15 @@ export default function AiTerminal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: q }),
       });
-      const data = (await res.json()) as { reply?: string; error?: string };
+      const data = (await res.json()) as { reply?: string };
       setLines((prev) => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: "assistant",
-          text: data.reply ?? data.error ?? "No response available.",
+          text:
+            data.reply?.trim() ||
+            "I can share details on Vylos Finance, my Eduvos studies, or Shahina Enterprise sales experience — ask me anything about those.",
         },
       ]);
     } catch {
@@ -60,7 +62,7 @@ export default function AiTerminal() {
         {
           id: `e-${Date.now()}`,
           role: "assistant",
-          text: "Something went wrong — please try again.",
+          text: "I can still help from my CV — ask about Vylos Finance (2026 – Present), Eduvos, or Shahina Enterprise sales.",
         },
       ]);
     } finally {

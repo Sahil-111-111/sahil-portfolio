@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cv } from "@/data/cv";
-import { localRespond } from "@/lib/localResponder";
+import { getLocalFallbackResponse } from "@/lib/localResponder";
 
 const SYSTEM_CONTEXT = `
 You are Sahil Dhabu's AI assistant speaking in the first person as Sahil (or clearly as Sahil's AI twin representing him).
@@ -48,75 +48,92 @@ ${(Object.entries(cv.skills) as [string, readonly string[]][])
 
 type Body = { message?: string };
 
-async function tryGemini(message: string, apiKey: string): Promise<string | null> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_CONTEXT }] },
-      contents: [{ role: "user", parts: [{ text: message }] }],
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 512,
-      },
-    }),
-  });
-
-  // Rate limit / API errors → silent local fallback
-  if (res.status === 429 || !res.ok) {
-    return null;
-  }
-
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-
-  const text =
-    data.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text ?? "")
-      .join("")
-      .trim() ?? "";
-
-  return text || null;
+function okLocal(message: string) {
+  return NextResponse.json(
+    { reply: getLocalFallbackResponse(message), source: "local" },
+    { status: 200 },
+  );
 }
 
 export async function POST(request: Request) {
   let message = "";
+
   try {
     const body = (await request.json()) as Body;
     message = (body.message ?? "").trim();
-  } catch {
-    // Still return a useful reply so the UI never surfaces a hard error
-    return NextResponse.json({
-      reply: localRespond("Tell me about yourself"),
-      source: "local",
-    });
+  } catch (err) {
+    console.error("Gemini API fallback triggered:", err);
+    return okLocal("Tell me about yourself");
   }
 
   if (!message) {
-    return NextResponse.json({
-      reply: localRespond("Tell me about yourself"),
-      source: "local",
+    return okLocal("Tell me about yourself");
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+
+  if (!apiKey) {
+    console.error(
+      "Gemini API fallback triggered:",
+      "GEMINI_API_KEY missing or empty",
+    );
+    return okLocal(message);
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: SYSTEM_CONTEXT }],
+        },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: message }],
+          },
+        ],
+      }),
     });
-  }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (apiKey) {
-    try {
-      const geminiReply = await tryGemini(message, apiKey);
-      if (geminiReply) {
-        return NextResponse.json({ reply: geminiReply, source: "gemini" });
-      }
-    } catch {
-      // Network / parse failures → silent local fallback
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => "");
+      console.error(
+        "Gemini API fallback triggered:",
+        `HTTP ${response.status}`,
+        errBody.slice(0, 500),
+      );
+      return okLocal(message);
     }
-  }
 
-  return NextResponse.json({
-    reply: localRespond(message),
-    source: "local",
-  });
+    const data = (await response.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+
+    if (!text) {
+      console.error(
+        "Gemini API fallback triggered:",
+        "Empty candidates[0].content.parts[0].text",
+        JSON.stringify(data).slice(0, 500),
+      );
+      return okLocal(message);
+    }
+
+    return NextResponse.json(
+      { reply: text, source: "gemini" },
+      { status: 200 },
+    );
+  } catch (err) {
+    console.error("Gemini API fallback triggered:", err);
+    return NextResponse.json(
+      { reply: getLocalFallbackResponse(message), source: "local" },
+      { status: 200 },
+    );
+  }
 }
