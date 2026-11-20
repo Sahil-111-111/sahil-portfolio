@@ -1,0 +1,28 @@
+# Sahil Dhabu Portfolio — Refined Zinc Dark Mode
+
+## Single Source of Truth
+- All personal, professional, education, project, and skill content MUST come from `src/data/cv.ts`.
+- Never invent placeholder copy, fake projects, Lorem ipsum, or generic demo data.
+- Contact: sahildhabu246@gmail.com | 083 332 4673 | linkedin.com/in/sahil-dhabu | Johannesburg, ZA.
+- CV download path: `/Sahil_Dhabu_CV.pdf`.
+- Vylos Finance period is strictly `2026 – Present`. Do NOT add an external live website link for Vylos Finance.
+
+## Stack
+- Next.js App Router + TypeScript + Tailwind CSS v4 + Framer Motion + Lucide React + Three.js.
+- Interactive components: `'use client'`.
+- Three.js / WebGL: always load via `next/dynamic(..., { ssr: false })`.
+
+## Design System — Refined Zinc Dark Mode
+- Inspired by Linear / Vercel / Raycast — clean, human-crafted, modern design-engineering.
+- Canvas: `#09090B`. Surfaces: `#111114` with `rounded-2xl`, `border-white/[0.08]`, inset top highlight.
+- Hover: `#18181B`, `hover:border-white/[0.16]`, 200ms transitions.
+- Type: `#FAFAFA` headings, `#A1A1AA` body, `#71717A` muted.
+- Accent: Sky `#38BDF8` sparingly. Emerald `#34D399` only for availability dot.
+- No coordinate grids, corner brackets, neon HUD chrome, or sci-fi terminal cosplay copy.
+- Fonts: Space Grotesk (headings), Inter (body), JetBrains Mono (dates, tags, terminal replies only).
+
+## Architecture Rules
+- Modular components in `src/components/`. Assemble in `src/app/page.tsx` via `PortfolioShell`.
+- AI terminal API: `src/app/api/chat/route.ts` — Gemini when `GEMINI_API_KEY` exists, else local fallback from `cv.ts`.
+- Preserve: CV download, Overview/System Architecture toggle, Skill Matrix, AI Terminal, Cmd/Ctrl+K palette.
+- Fully responsive; `npm run build` must pass with zero SSR/hydration failures.
